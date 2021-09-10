@@ -1,8 +1,8 @@
 using System;
+using System.Diagnostics;
 using Marten.Internal;
 using Marten.Linq.Fields;
 using Weasel.Postgresql;
-using Marten.Util;
 
 namespace Marten.Linq.SqlGeneration
 {
@@ -22,17 +22,49 @@ namespace Marten.Linq.SqlGeneration
             sourceStatement.InsertBefore(this);
         }
 
+        public override void PostCompileLocal(IMartenSession session)
+        {
+            var documentStatement = findDocumentStatement();
+
+            Debug.WriteLine("Hey");
+        }
+
+        private DocumentStatement findDocumentStatement()
+        {
+            Statement node = this;
+            while (node.Next != null)
+            {
+                if (node.Next is DocumentStatement s) return s;
+                node = node.Next;
+            }
+
+            return null;
+        }
+
         protected override void configure(CommandBuilder sql)
         {
             startCommonTableExpression(sql);
 
-            sql.Append("select id, ");
+            sql.Append("select ctid, ");
             sql.Append(_field.LocatorForFlattenedElements);
             sql.Append(" as data from ");
 
             sql.Append(_sourceTable);
 
-            endCommonTableExpression(sql, " as d");
+
+            if (Where != null)
+            {
+                sql.Append(" as d WHERE ");
+                Where.Apply(sql);
+
+                endCommonTableExpression(sql);
+            }
+            else
+            {
+                endCommonTableExpression(sql, " as d");
+            }
+
+
         }
     }
 }
